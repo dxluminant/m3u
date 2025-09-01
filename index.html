@@ -3,98 +3,114 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bangla TV Player</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.css">
+  <title>Live TV Player (Mobile)</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      display: flex;
-      height: 100vh;
-      background: #111;
+      background: #121212;
       color: #fff;
-    }
-    #sidebar {
-      width: 250px;
-      overflow-y: auto;
-      background: #222;
-      padding: 10px;
-    }
-    #sidebar ul {
-      list-style: none;
+      margin: 0;
       padding: 0;
-      margin: 0;
     }
-    #sidebar li {
-      display: flex;
-      align-items: center;
-      margin: 5px 0;
-      cursor: pointer;
-      padding: 5px;
-      border-radius: 5px;
-      transition: 0.2s;
-    }
-    #sidebar li:hover {
-      background: #333;
-    }
-    #sidebar img {
-      width: 40px;
-      height: 30px;
-      object-fit: contain;
-      margin-right: 10px;
-    }
-    #player-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: #000;
-      position: relative;
-    }
+
     #player {
+      background: #000;
       width: 100%;
-      height: 80%;
-      transition: opacity 0.3s;
+      height: 40vh; /* Smaller for mobile */
+      border-radius: 8px;
+      overflow: hidden;
     }
-    #controls {
+
+    .channel-list {
+      max-height: 50vh;
+      overflow-y: auto;
       margin-top: 10px;
+      padding: 0;
     }
-    #controls button {
-      padding: 10px 15px;
-      margin: 0 5px;
+
+    .channel-list li {
+      list-style: none;
       cursor: pointer;
-      font-size: 16px;
-      border: none;
+      padding: 10px;
       border-radius: 5px;
-      background: #444;
-      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       transition: 0.2s;
     }
-    #controls button:hover {
-      background: #666;
+
+    .channel-list li:hover,
+    .channel-list li.active {
+      background: #1f1f1f;
+    }
+
+    .channel-list img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      border-radius: 5px;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+      gap: 30px;
+    }
+
+    .control-btn {
+      cursor: pointer;
+      font-size: 2rem;
+      color: #0d6efd;
+      user-select: none;
+      transition: 0.2s;
+    }
+
+    .control-btn:hover {
+      color: #0a58ca;
+    }
+
+    /* Hide sidebar in small screens and use toggle button */
+    #channelToggle {
+      display: block;
+      text-align: center;
+      margin: 10px 0;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: #0d6efd;
+    }
+
+    #channelListContainer {
+      display: none; /* Hidden by default */
     }
   </style>
 </head>
 <body>
+  <div class="container-fluid px-2">
+    <h4 class="text-center py-2">Live TV Player</h4>
 
-  <div id="sidebar">
-    <h3>Channels</h3>
-    <ul id="channelList"></ul>
-  </div>
-
-  <div id="player-container">
+    <!-- Video Player -->
     <div id="player"></div>
-    <div id="controls">
-      <button onclick="prevChannel()">Prev</button>
-      <button onclick="togglePlayPause()">Play/Pause</button>
-      <button onclick="nextChannel()">Next</button>
+
+    <!-- Controls -->
+    <div class="controls">
+      <span class="control-btn" onclick="prevChannel()">&#9664;</span>
+      <span class="control-btn" onclick="nextChannel()">&#9654;</span>
+    </div>
+
+    <!-- Toggle Channel List -->
+    <div id="channelToggle" onclick="toggleChannelList()">📺 Channels</div>
+
+    <!-- Channel List -->
+    <div id="channelListContainer">
+      <ul class="channel-list" id="channelList"></ul>
     </div>
   </div>
 
   <!-- Clappr JS -->
   <script src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
-  
+
   <script>
 const channels = [
   {
@@ -1202,14 +1218,15 @@ const channels = [
   }
     ];
 
-    const defaultPoster = "https://i.postimg.cc/7ZbVfZ3h/default-poster.png";
+    const defaultPoster = "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.pinterest.com%2Fpin%2F361484307574577129%2F&psig=AOvVaw1A4wGWt_2ShV1YolZImdt0&ust=1756056353254000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCKDMv-y5oY8DFQAAAAAdAAAAABAE";
+
     let currentChannel = 0;
     let player = null;
-    let isPlaying = true;
 
     function loadChannel(index) {
       const channel = channels[index];
       if (player) player.destroy();
+
       document.getElementById("player").style.opacity = 0;
 
       setTimeout(() => {
@@ -1222,9 +1239,11 @@ const channels = [
           autoPlay: true,
           mute: false,
         });
-        isPlaying = true;
         document.getElementById("player").style.opacity = 1;
-      }, 200);
+      }, 300);
+
+      const items = document.querySelectorAll('.channel-list li');
+      items.forEach((li, i) => li.classList.toggle('active', i === index));
     }
 
     function renderChannelList() {
@@ -1250,20 +1269,13 @@ const channels = [
       loadChannel(currentChannel);
     }
 
-    function togglePlayPause() {
-      if (!player) return;
-      if (isPlaying) {
-        player.pause();
-        isPlaying = false;
-      } else {
-        player.play();
-        isPlaying = true;
-      }
+    function toggleChannelList() {
+      const container = document.getElementById("channelListContainer");
+      container.style.display = container.style.display === "none" ? "block" : "none";
     }
 
     renderChannelList();
     loadChannel(currentChannel);
   </script>
-
 </body>
 </html>
