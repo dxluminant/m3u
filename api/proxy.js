@@ -6,14 +6,13 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(url, { redirect: "follow" });
-    let contentType = response.headers.get("content-type") || "application/octet-stream";
-    res.setHeader("Content-Type", contentType);
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
     res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", contentType);
 
-    let text = await response.text();
-
-    // যদি M3U বা M3U8 হয় → proxy link rewrite
+    // যদি playlist হয় (m3u/m3u8) → text + rewrite
     if (contentType.includes("mpegurl") || url.endsWith(".m3u") || url.endsWith(".m3u8")) {
+      let text = await response.text();
       const baseUrl = url.replace(/[^/]+$/, "");
       let lines = text.split("\n").map(line => {
         line = line.trim();
@@ -26,10 +25,13 @@ export default async function handler(req, res) {
         }
         return line;
       });
-      text = lines.join("\n");
+      return res.send(lines.join("\n"));
     }
 
-    res.send(text);
+    // অন্য কিছু হলে (ts, mp4, segment ইত্যাদি) → raw binary পাঠাও
+    const buffer = Buffer.from(await response.arrayBuffer());
+    res.send(buffer);
+
   } catch (err) {
     res.status(500).send("Error: " + err.message);
   }
