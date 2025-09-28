@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
-    /* তোমার আগের CSS 그대로 রাখা হলো */
     :root {
       --primary-color: #2196f3;
       --background-color: #121212;
@@ -49,15 +48,44 @@
       width: 40px; height: 40px; animation: spin 1s linear infinite; display: none; }
     @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); }
       100% { transform: translate(-50%, -50%) rotate(360deg); } }
+    /* Ad container styles */
+    .ad-container { display: flex; justify-content: center; padding: 10px 0; background-color: var(--surface-color); }
+    .ad-container iframe { display: block; margin: 0 auto; }
   </style>
 </head>
 <body>
   <div id="main">
     <video id="player" controls autoplay playsinline></video>
+    <!-- Ad Unit 1: 468x60 (Above Controls) -->
+    <div class="ad-container">
+      <script type="text/javascript">
+        atOptions = {
+          'key' : '0e4c12e19122f03ae09be7e4194b5eca',
+          'format' : 'iframe',
+          'height' : 60,
+          'width' : 468,
+          'params' : {}
+        };
+      </script>
+      <script type="text/javascript" src="//www.highperformanceformat.com/0e4c12e19122f03ae09be7e4194b5eca/invoke.js"></script>
+    </div>
     <div id="controls">
       <button id="prev" class="btn btn-primary"><i class="fas fa-backward"></i></button>
       <button id="mute" class="btn btn-secondary"><i class="fas fa-volume-up"></i></button>
       <button id="next" class="btn btn-primary"><i class="fas fa-forward"></i></button>
+    </div>
+    <!-- Ad Unit 2: 728x90 (Below Controls) -->
+    <div class="ad-container">
+      <script type="text/javascript">
+        atOptions = {
+          'key' : 'ed71ec8b2651bc3c13696cb28a68f16d',
+          'format' : 'iframe',
+          'height' : 90,
+          'width' : 728,
+          'params' : {}
+        };
+      </script>
+      <script type="text/javascript" src="//www.highperformanceformat.com/ed71ec8b2651bc3c13696cb28a68f16d/invoke.js"></script>
     </div>
     <div id="loader"></div>
   </div>
