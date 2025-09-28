@@ -1,103 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TV Player with AdBlock Detection</title>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <style>
-    body {margin:0;padding:0;background:#000;color:#fff;font-family:sans-serif;}
-    #player {width:100%;height:60vh;background:#000;}
-    /* Overlay style */
-    #adblock-overlay {
-      position: fixed;top:0;left:0;width:100%;height:100%;
-      background:rgba(0,0,0,0.9);color:#000;z-index:10000;
-      display:flex;justify-content:center;align-items:center;
-    }
-    #adblock-overlay div {
-      background:#fff;padding:20px;border-radius:10px;
-      max-width:400px;text-align:center;font-family:sans-serif;
-    }
-    #adblock-overlay h2 {margin-bottom:10px;}
-    #adblock-overlay button {
-      margin-top:15px;padding:10px 20px;border:none;
-      border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modern TV Player</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+    body {margin:0; padding:0; font-family:'Roboto',sans-serif; background:#121212; color:#fff;}
+    #main {display:flex; flex-direction:column; height:100vh;}
+    #player {flex-grow:1; background:#000;}
+    #controls {display:flex; justify-content:center; gap:15px; padding:15px; background:#1e1e1e;}
+    .btn {transition:0.3s; padding:12px; font-size:1.2em;}
+    #playlist {position:fixed; top:0; right:0; width:300px; height:100%; background:#1e1e1e; overflow-y:auto; transform:translateX(300px); transition:0.3s; z-index:5; padding:20px;}
+    body.playlist-open #playlist {transform:translateX(0);}
+    #playlist h3 {margin:20px 0 10px; color:#bbbbbb; text-transform:uppercase; position:sticky; top:0; background:#1e1e1e; padding:10px 0;}
+    #playlist ul {list-style:none; padding:0; margin:0;}
+    #playlist li {display:flex; align-items:center; padding:12px; cursor:pointer; border-radius:8px; margin-bottom:8px; transition:0.3s;}
+    #playlist li:hover {background:#333;}
+    #playlist li.active {background:#282828; font-weight:bold;}
+    #playlist img {width:50px; height:50px; object-fit:contain; margin-right:15px; border-radius:8px;}
+    #toggle-menu {position:fixed; top:20px; left:20px; z-index:10; width:50px; height:50px; border:none; border-radius:50%; background:rgba(0,0,0,0.7); color:#fff; display:flex; justify-content:center; align-items:center; font-size:24px; cursor:pointer;}
+</style>
 </head>
 <body>
-  <!-- Video Player -->
-  <video id="player" controls autoplay playsinline></video>
+<!-- Main Content -->
+<div id="mainContent">
+    <div id="main">
+        <video id="player" controls autoplay playsinline></video>
+        <div id="controls">
+            <button id="prev" class="btn btn-primary"><i class="fas fa-backward"></i></button>
+            <button id="mute" class="btn btn-secondary"><i class="fas fa-volume-up"></i></button>
+            <button id="next" class="btn btn-primary"><i class="fas fa-forward"></i></button>
+        </div>
+        <div id="playlist"></div>
+    </div>
+    <button id="toggle-menu" class="btn"><i class="fas fa-bars"></i></button>
+</div>
 
-  <script>
-    // Playlist Example
-    const video = document.getElementById('player');
-    const streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+<!-- AdBlock Overlay (hidden by default) -->
+<div id="adblock-overlay" style="display:none;"></div>
 
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-    } else {
-      video.src = streamUrl;
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const playlistUrl = 'https://raw.githubusercontent.com/dxluminant/tv_channel/main/channels.m3u';
+
+let tracks = [];
+let groups = {};
+let currentTrack = 0;
+const video = document.getElementById('player');
+const playlistEl = document.getElementById('playlist');
+const prevBtn = document.getElementById('prev');
+const muteBtn = document.getElementById('mute');
+const nextBtn = document.getElementById('next');
+const toggleMenu = document.getElementById('toggle-menu');
+let hls;
+
+toggleMenu.addEventListener('click', () => { document.body.classList.toggle('playlist-open'); });
+muteBtn.addEventListener('click', () => {
+    video.muted = !video.muted;
+    const icon = muteBtn.querySelector('i');
+    icon.classList.toggle('fa-volume-up');
+    icon.classList.toggle('fa-volume-mute');
+});
+
+async function loadPlaylist() {
+    try {
+        const response = await fetch(playlistUrl);
+        const text = await response.text();
+        parseM3U(text);
+        groupTracks();
+        renderPlaylist();
+        loadTrack(currentTrack);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function parseM3U(content) {
+    const lines = content.split('\n');
+    let extinf = '';
+    for (let line of lines) {
+        line = line.trim();
+        if (!line || line.startsWith('#EXTM3U')) continue;
+        if (line.startsWith('#EXTINF:')) { extinf = line.substring(8).trim(); }
+        else if (!line.startsWith('#')) {
+            if (extinf) {
+                tracks.push(parseExtinf(extinf,line));
+                extinf = '';
+            }
+        }
+    }
+}
+
+function parseExtinf(extinf,url){
+    const commaIndex = extinf.lastIndexOf(',');
+    let title = commaIndex!==-1 ? extinf.substring(commaIndex+1).trim() : 'Unknown';
+    return {url, title};
+}
+
+function groupTracks() {
+    groups = {};
+    tracks.forEach((track,index)=> {
+        const g='Other';
+        if(!groups[g]) groups[g]=[];
+        groups[g].push({...track,index});
+    });
+}
+
+function renderPlaylist() {
+    playlistEl.innerHTML='';
+    Object.keys(groups).forEach(group=>{
+        const h3=document.createElement('h3'); h3.textContent=group; playlistEl.appendChild(h3);
+        const ul=document.createElement('ul');
+        groups[group].forEach(track=>{
+            const li=document.createElement('li'); li.textContent=track.title;
+            li.addEventListener('click',()=>{currentTrack=track.index; loadTrack(currentTrack); document.body.classList.remove('playlist-open');});
+            ul.appendChild(li);
+        });
+        playlistEl.appendChild(ul);
+    });
+    updateActiveTrack();
+}
+
+function loadTrack(index){
+    if(index<0||index>=tracks.length) return;
+    const url=tracks[index].url;
+    if(hls) hls.destroy();
+    if(Hls.isSupported()&&url.endsWith('.m3u8')){hls=new Hls();hls.loadSource(url);hls.attachMedia(video);}
+    else{video.src=url;}
+    video.load(); video.play().catch(()=>{});
+    updateActiveTrack();
+}
+
+function updateActiveTrack(){
+    const items=playlistEl.querySelectorAll('li'); items.forEach(i=>i.classList.remove('active'));
+    const activeLi=[...items].find(li=>li.textContent===tracks[currentTrack].title);
+    if(activeLi) activeLi.classList.add('active');
+}
+
+prevBtn.addEventListener('click',()=>{currentTrack=(currentTrack-1+tracks.length)%tracks.length; loadTrack(currentTrack);});
+nextBtn.addEventListener('click',()=>{currentTrack=(currentTrack+1)%tracks.length; loadTrack(currentTrack);});
+video.addEventListener('ended',()=>{nextBtn.click();});
+video.addEventListener('error',()=>{nextBtn.click();});
+
+// ---------------- AdBlock Detection ----------------
+(function(){
+    function detectAdBlock() {
+        return new Promise((resolve)=>{
+            let bait=document.createElement("div");
+            bait.className="adsbox ad-banner ad-unit";
+            bait.style.width="1px"; bait.style.height="1px"; bait.style.position="absolute"; bait.style.left="-9999px";
+            document.body.appendChild(bait);
+            setTimeout(()=>{
+                let blocked=false;
+                if(bait.offsetParent===null || window.getComputedStyle(bait).display==="none"){blocked=true;}
+                document.body.removeChild(bait);
+                resolve(blocked);
+            },200);
+        });
     }
 
-    // AdBlock Detection
-    (function () {
-      function detectAdBlock() {
-        return new Promise((resolve) => {
-          let bait = document.createElement("div");
-          bait.className = "adsbox ad-unit";
-          bait.style.width = "1px";
-          bait.style.height = "1px";
-          bait.style.position = "absolute";
-          bait.style.left = "-9999px";
-          document.body.appendChild(bait);
-
-          let adScript = document.createElement("script");
-          adScript.src = "//www.highperformanceformat.com/0e4c12e19122f03ae09be7e4194b5eca/invoke.js";
-          let adScriptLoaded = false;
-          adScript.onload = () => { adScriptLoaded = true; };
-          adScript.onerror = () => { adScriptLoaded = false; };
-          document.body.appendChild(adScript);
-
-          setTimeout(() => {
-            let isBlocked =
-              bait.offsetParent === null ||
-              window.getComputedStyle(bait).display === "none" ||
-              !adScriptLoaded;
-            document.body.removeChild(bait);
-            document.body.removeChild(adScript);
-            resolve(isBlocked);
-          }, 500);
-        });
-      }
-
-      function showAdblockPopup() {
-        let overlay = document.createElement("div");
-        overlay.id = "adblock-overlay";
-        overlay.innerHTML = `
-          <div>
+    function showAdblockPopup(){
+        const overlay=document.getElementById("adblock-overlay");
+        overlay.style.display="flex";
+        overlay.innerHTML=`<div style="background:#fff;padding:20px;border-radius:10px;text-align:center;max-width:400px;">
             <h2>AdBlocker Detected!</h2>
-            <p>Please disable AdBlock to continue using this site.</p>
-            <button id="refreshPage">I Disabled AdBlock</button>
-          </div>
-        `;
-        document.body.appendChild(overlay);
+            <p>Please disable your AdBlocker to continue.</p>
+            <button id="refreshPage" style="margin-top:15px;padding:10px 20px;background:#1a73e8;color:#fff;border:none;border-radius:5px;cursor:pointer;">I Disabled AdBlock</button>
+        </div>`;
+        document.getElementById("refreshPage").addEventListener("click",()=>{location.reload();});
+    }
 
-        document.getElementById("refreshPage").addEventListener("click", () => {
-          location.reload();
+    window.addEventListener("load",()=>{
+        detectAdBlock().then(adBlockDetected=>{
+            if(adBlockDetected){showAdblockPopup();}
+            else{document.getElementById("mainContent").style.display="block";}
         });
-      }
-
-      window.addEventListener("load", () => {
-        detectAdBlock().then((adBlockDetected) => {
-          if (adBlockDetected) {
-            showAdblockPopup();
-          }
-        });
-      });
-    })();
-  </script>
+    });
+})();
+</script>
 </body>
 </html>
